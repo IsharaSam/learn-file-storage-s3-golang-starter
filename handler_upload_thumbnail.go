@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -52,6 +53,8 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusBadRequest, "Unable to read file", err)
 	}
 
+	base64ImageData := base64.StdEncoding.EncodeToString(imageData)
+	dataURL := fmt.Sprintf("data:%s;base64,%s", mediaType, base64ImageData)
 	video, err := cfg.db.GetVideo(videoID)
 
 	if err != nil {
@@ -62,23 +65,10 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusUnauthorized, "You are not authorized to upload this thumbnail", nil)
 	}
 
-	thumbnail := thumbnail{
-		mediaType: mediaType,
-		data:      imageData,
-	}
-
-	videoThumbnails[videoID] = thumbnail
-
-	ThumbnailURL := fmt.Sprintf("http://localhost:%v/api/thumbnails/%v\n\n", cfg.port, videoID)
-
-	fmt.Println(ThumbnailURL)
-
-	video.ThumbnailURL = &ThumbnailURL
+	video.ThumbnailURL = &dataURL
 
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
-		delete(videoThumbnails, videoID)
-
 		respondWithError(w, http.StatusInternalServerError, "Unable to save video", err)
 	}
 
