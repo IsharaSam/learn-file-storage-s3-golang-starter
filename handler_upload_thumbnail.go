@@ -5,6 +5,7 @@ import (
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
 	"io"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,17 +40,30 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	file, header, err := r.FormFile("thumbnail")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to parse form file", err)
+		return
 	}
 	defer file.Close()
-	mediaType := header.Header.Get("Content-Type")
+	contentTypeHeader := header.Header.Get("Content-Type")
 
-	if mediaType == "" {
+	if contentTypeHeader == "" {
 		respondWithError(w, http.StatusBadRequest, "Missing Content-Type for thumbnail", nil)
+		return
+	}
+
+	mediaType, _, err := mime.ParseMediaType(contentTypeHeader)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Unable to parse media type", err)
+		return
+	}
+
+	if mediaType != "image/jpeg" && mediaType != "image/png" {
+		respondWithError(w, http.StatusBadRequest, "Unsupported media type", nil)
 		return
 	}
 
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to read file", err)
+		return
 	}
 
 	fileName := fmt.Sprintf("%s%s", videoIDString, filepath.Ext(header.Filename))
@@ -60,6 +74,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	newFile, err := os.Create(filePath)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to create file", err)
+		return
 	}
 
 	defer newFile.Close()
@@ -70,10 +85,12 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to find video", err)
+		return
 	}
 
 	if userID != video.UserID {
 		respondWithError(w, http.StatusUnauthorized, "You are not authorized to upload this thumbnail", nil)
+		return
 	}
 
 	thumbnailURL := fmt.Sprintf("http://localhost:%s/assets/%s", cfg.port, fileName)
@@ -83,6 +100,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	err = cfg.db.UpdateVideo(video)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to save video", err)
+		return
 	}
 
 	respondWithJSON(w, http.StatusOK, video)
