@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -66,7 +68,11 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	fileName := fmt.Sprintf("%s%s", videoIDString, filepath.Ext(header.Filename))
+	var fileString string
+	key := make([]byte, 32)
+	rand.Read(key)
+	fileString = base64.RawURLEncoding.EncodeToString(key)
+	fileName := fmt.Sprintf("%s%s", fileString, filepath.Ext(header.Filename))
 	fmt.Println("fileExtension", fileName)
 
 	filePath := filepath.Join("assets", fileName)
